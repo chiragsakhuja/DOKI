@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">DOKI Kiosk</string>
+    <string name="kiosk_name">Demo</string>
+    <string name="server_url">http://192.168.1.48:3000</string>
+    <string name="button_register">Register</string>
+    <string name="button_unregister">Unregister</string>
+    <string name="button_enable">Enable</string>
+    <string name="button_disable">Disable</string>
 </resources>
