@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "express": "^4.14.0",
+    "mongodb": "^2.2.11"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0"
+  }
+}
