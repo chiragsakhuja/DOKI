@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">DOKI Mobile</string>
+    <string name="button_start">Start Analysis</string>
+    <string name="button_stop">Stop Analysis</string>
 </resources>

@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
 import java.io.IOException;
@@ -67,6 +68,28 @@ public class Home extends AppCompatActivity {
                 }
             }
         });
+
+        Button start_button = (Button) findViewById(R.id.button_start);
+        start_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startAnalysis();
+            }
+        });
+
+        Button stop_button = (Button) findViewById(R.id.button_stop);
+        stop_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                stopAnalysis();
+            }
+        });
+    }
+
+    public void startAnalysis() {
+    }
+
+    public void stopAnalysis() {
     }
 
     private class ConnectThread extends Thread {
