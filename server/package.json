@@ -1,13 +1,17 @@
 {
+  "name": "node-token-jwt",
+  "main": "server.js",
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "node_modules/nodemon/bin/nodemon.js server.js"
   },
   "dependencies": {
+    "bcrypt": "^0.8.7",
     "body-parser": "^1.15.2",
     "express": "^4.14.0",
-    "mongodb": "^2.2.11"
-  },
-  "devDependencies": {
-    "nodemon": "^1.11.0"
+    "jsonwebtoken": "^7.1.9",
+    "mongoose": "^4.7.0",
+    "morgan": "^1.7.0",
+    "nodeman": "^1.1.2",
+    "spdy": "^3.4.4"
   }
 }
