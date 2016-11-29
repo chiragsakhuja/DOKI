@@ -1,7 +1,6 @@
 <resources>
     <string name="app_name">DOKI Kiosk</string>
     <string name="kiosk_name">Demo</string>
-    <string name="server_url">http://10.146.98.155:3000</string>
     <string name="button_register">Register</string>
     <string name="button_unregister">Unregister</string>
     <string name="button_enable">Enable</string>
@@ -12,8 +11,16 @@
     <string name="prompt_password">Password</string>
     <string name="action_sign_in">Sign in or register</string>
     <string name="action_sign_in_short">Sign in</string>
-    <string name="error_incorrect_password">This password is incorrect</string>
+    <string name="error_incorrect_login">The username or password is incorrect</string>
     <string name="error_field_required">This field is required</string>
     <string name="title_activity_login">Sign in</string>
     <string name="button_login">Sign In</string>
+
+    <!-- Strings related to register -->
+    <string name="title_activity_register">Admin Panel</string>
+
+    <!-- Strings related to server communication -->
+    <string name="server_url">http://192.168.1.48:8080/</string>
+    <string name="url_authenticate">api/authenticate</string>
+    <string name="url_register_kiosk">api/addKiosk</string>
 </resources>

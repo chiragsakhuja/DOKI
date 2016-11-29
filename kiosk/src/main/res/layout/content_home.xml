@@ -26,7 +26,6 @@
             android:layout_height="wrap_content"
             android:text="@string/button_login"
             android:onClick="toLoginActivity" />
-
     </LinearLayout>
 
     <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"

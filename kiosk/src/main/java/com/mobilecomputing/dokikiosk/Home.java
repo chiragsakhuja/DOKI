@@ -100,7 +100,7 @@ public class Home extends AppCompatActivity {
     }
 
     public void toLoginActivity(View view) {
-        Intent intent = new Intent(this, LoginActivity.class);
+        Intent intent = new Intent(this, Login.class);
         startActivity(intent);
     }
 
