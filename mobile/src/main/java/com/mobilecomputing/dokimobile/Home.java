@@ -36,7 +36,7 @@ public class Home extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mmDevice = mBluetoothAdapter.getRemoteDevice("");
+                mmDevice = mBluetoothAdapter.getRemoteDevice("chj");
                 (new ConnectThread()).start();
             }
         });

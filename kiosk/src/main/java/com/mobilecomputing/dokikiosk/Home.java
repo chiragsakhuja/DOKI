@@ -3,6 +3,7 @@ package com.mobilecomputing.dokikiosk;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -10,11 +11,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-
-import com.mobilecomputing.dokilibrary.ServerChannel;
-
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,7 +23,6 @@ public class Home extends AppCompatActivity {
     private TextView mainMessage;
     private AcceptThread serverSocketThread;
     private Handler bluetoothHandler, mainHandler;
-    private ServerChannel serverUpdate;
 
     private final static int MESSAGE_RECEIVED = 1;
     private final static int UPDATE_BLUETOOTH_STATUS = 2;
@@ -86,7 +81,7 @@ public class Home extends AppCompatActivity {
             }
         });
 
-        serverUpdate = new ServerChannel(getResources().getString(R.string.server_url) + "/update");
+        /*serverUpdate = new ServerChannel(getResources().getString(R.string.server_url) + "/update");
         Button register_button = (Button) findViewById(R.id.button_register);
         register_button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -101,7 +96,12 @@ public class Home extends AppCompatActivity {
                     e.printStackTrace();
                 }
             }
-        });
+        });*/
+    }
+
+    public void toLoginActivity(View view) {
+        Intent intent = new Intent(this, LoginActivity.class);
+        startActivity(intent);
     }
 
     private class AcceptThread extends Thread {
@@ -110,6 +110,12 @@ public class Home extends AppCompatActivity {
         private final UUID MY_UUID = new UUID(0x0000000000000000L, 0xdeadbeef0badcafeL);
 
         public AcceptThread(BluetoothAdapter mBluetoothAdapter) {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
             // Use a temporary object that is later assigned to mmServerSocket,
             // because mmServerSocket is final
             BluetoothServerSocket tmp = null;
