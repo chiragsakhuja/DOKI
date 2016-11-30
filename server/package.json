@@ -2,7 +2,7 @@
   "name": "node-token-jwt",
   "main": "server.js",
   "engines": {
-      "node": ">=6.9.1"
+    "node": ">=6.9.1"
   },
   "scripts": {
     "start": "node server.js",
@@ -15,7 +15,7 @@
     "jsonwebtoken": "^7.1.9",
     "mongoose": "^4.7.0",
     "morgan": "^1.7.0",
-    "nodeman": "^1.1.2",
+    "nodemon": "^1.11.0",
     "spdy": "^3.4.4"
   }
 }
