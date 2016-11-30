@@ -14,7 +14,14 @@ import android.widget.TextView;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 public class Home extends AppCompatActivity {
     private BluetoothAdapter bluetoothAdapter;
@@ -160,19 +167,33 @@ public class Home extends AppCompatActivity {
             }
 
             public void run() {
-                byte[] buffer = new byte[1024];  // buffer store for the stream
+                byte[] buffer;  // buffer store for the stream
                 int bytes; // bytes returned from read()
 
                 // Keep listening to the InputStream until an exception occurs
                 while (true) {
                     try {
                         // Read from the InputStream
-                        bytes = mmInStream.read(buffer);
+                        byte[] encodedBytes = new byte[2048];
+                        bytes = mmInStream.read(encodedBytes);
+                        Cipher c = Cipher.getInstance("RSA");
+                        c.init(Cipher.DECRYPT_MODE, GlobalState.getInstance().getPrivateKey());
+                        buffer = c.doFinal(encodedBytes, 0, bytes);
                         // Send the obtained bytes to the UI activity
                         mainHandler.obtainMessage(MESSAGE_RECEIVED, bytes, -1, buffer).sendToTarget();
                         bluetoothHandler.obtainMessage(UPDATE_BLUETOOTH_STATUS, -1, -1, "Message received").sendToTarget();
                     } catch (IOException e) {
                         break;
+                    } catch (NoSuchPaddingException e) {
+                        e.printStackTrace();
+                    } catch (NoSuchAlgorithmException e) {
+                        e.printStackTrace();
+                    } catch (InvalidKeyException e) {
+                        e.printStackTrace();
+                    } catch (BadPaddingException e) {
+                        e.printStackTrace();
+                    } catch (IllegalBlockSizeException e) {
+                        e.printStackTrace();
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package com.mobilecomputing.dokikiosk;
 
+import android.bluetooth.BluetoothAdapter;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
@@ -31,8 +32,10 @@ public class Register extends AppCompatActivity {
             KeyPair kp = kpg.genKeyPair();
             Key publicKey = kp.getPublic();
             Key privateKey = kp.getPrivate();
+            GlobalState.getInstance().setPrivateKey(privateKey);
 
             String macAddress = android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "bluetooth_address");
+            String bluetoothName = BluetoothAdapter.getDefaultAdapter().getName();
             byte[] pubEnc = publicKey.getEncoded();
             String pubStr = new String(Base64.encode(pubEnc, Base64.DEFAULT));
 
@@ -46,7 +49,7 @@ public class Register extends AppCompatActivity {
             postData.put("loc", locationData);
             postData.put("pubkey", pubStr);
             postData.put("mac", macAddress);
-            postData.put("bluetoothName", "chirag");
+            postData.put("bluetoothName", bluetoothName);
             register.execute(postData);
         } catch (MalformedURLException e) {
             e.printStackTrace();
