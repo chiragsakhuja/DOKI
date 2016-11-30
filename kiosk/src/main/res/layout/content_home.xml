@@ -28,21 +28,4 @@
             android:onClick="toLoginActivity" />
     </LinearLayout>
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/button_enable"
-            android:text="@string/button_enable" />
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/button_disable"
-            android:text="@string/button_disable" />
-    </LinearLayout>
-
 </LinearLayout>

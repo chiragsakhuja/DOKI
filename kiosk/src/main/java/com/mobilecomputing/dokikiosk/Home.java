@@ -9,7 +9,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
 
 import java.io.IOException;
@@ -31,6 +30,9 @@ public class Home extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+        // Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
+        // setSupportActionBar(myToolbar);
+
         // Set up handlers for display elements
         bluetoothStatus = (TextView) findViewById(R.id.bluetooth_status);
         mainMessage = (TextView) findViewById(R.id.main_message);
@@ -63,40 +65,6 @@ public class Home extends AppCompatActivity {
 
         serverSocketThread = new AcceptThread(bluetoothAdapter);
         serverSocketThread.start();
-
-        Button enable_button = (Button) findViewById(R.id.button_enable);
-        enable_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                serverSocketThread = new AcceptThread(bluetoothAdapter);
-                serverSocketThread.start();
-            }
-        });
-
-        Button disable_button = (Button) findViewById(R.id.button_disable);
-        disable_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                serverSocketThread.cancel();
-            }
-        });
-
-        /*serverUpdate = new ServerChannel(getResources().getString(R.string.server_url) + "/update");
-        Button register_button = (Button) findViewById(R.id.button_register);
-        register_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                final JSONObject kioskInfo = new JSONObject();
-                try {
-                    String macAddress = android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "bluetooth_address");
-                    kioskInfo.put("name", R.string.kiosk_name);
-                    kioskInfo.put("mac", macAddress);
-                    serverUpdate.postData(kioskInfo);
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            }
-        });*/
     }
 
     public void toLoginActivity(View view) {
