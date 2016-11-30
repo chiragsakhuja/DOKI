@@ -14,13 +14,22 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.IntegerRes;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
+import com.mobilecomputing.dokilibrary.HttpRequestTaskAsync;
+
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,21 +39,40 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.UUID;
 
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.spec.X509EncodedKeySpec;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 public class Home extends AppCompatActivity
 {
-    private static final float kiosk_accuracy = 24.0f;
-    private static final double kiosk_latitude = 30.2788;
-    private static final double kiosk_altitude = 118.0;
-    private static final double kiosk_longitude = -97.7748;
-    private static final String kiosk_id = new String("DESKTOP-02PPB5V");
+    //private static final float kiosk_accuracy = 24.0f;
+    //private static final double kiosk_latitude = 30.2788;
+    //private static final double kiosk_altitude = 118.0;
+    //private static final double kiosk_longitude = -97.7748;
     /***************************************************************/
-    private static final int dist_threshold = 100;  // in meters
-    private static final int signal_threshold = -55; // in decibel
+    private String kiosk_id;
+    private String kiosk_addr;
+    private PublicKey pubkey;
+    private String disease;
+    /***************************************************************/
+    private static final int dist_threshold = 50;  // in meters
+    private static final int signal_threshold = -60; // in decibel
     private static final int accuracy_threshold = 50; // in meters
     /***************************************************************/
     private static final int MESSAGE_APPEND = 1;
     private static final int MESSAGE_OVERWRITE = 2;
     private static final int MESSAGE_DOKI = 3;
+    private static final int MESSAGE_GRAPH_ADD = 4;
+    private static final int MESSAGE_GRAPH_RST = 5;
     /***************************************************************/
     private boolean data_ready = false;
     private boolean gps_in_use = false;
@@ -59,6 +87,9 @@ public class Home extends AppCompatActivity
     private BluetoothDevice mmDevice;
     private LocationManager mLocationManager;
     private BluetoothAdapter mBluetoothAdapter;
+    private LineGraphSeries<DataPoint> series_vx;
+    private LineGraphSeries<DataPoint> series_vy;
+    private LineGraphSeries<DataPoint> series_vz;
     /***************************************************************/
     /***************************************************************/
     protected void set_ready_flag(){data_ready = true;}
@@ -66,7 +97,12 @@ public class Home extends AppCompatActivity
     protected void reset_analysis_flag(){analysis_in_progress = false;}
     protected void enable_kiosk_mode() { kiosk_mode = true; }
     protected void disable_kiosk_mode() { kiosk_mode = false; }
-    protected void stop_discovery() {discovery_in_progress = false;}
+    protected void stop_discovery()
+    {
+        discovery_in_progress = false;
+
+        mBluetoothAdapter.cancelDiscovery();
+    }
     protected void start_discovery()
     {
         discovery_in_progress = true;
@@ -135,6 +171,8 @@ public class Home extends AppCompatActivity
                         {
                             message_board.setText("Initiating data transfer to " + kiosk_id + " (RSSI = " + rssi + "dBm)\n");
                             stop_discovery();
+                            send_message(disease);
+                            message_board.setText("Done with transfer\n");
                         }
                         else
                         {
@@ -153,10 +191,11 @@ public class Home extends AppCompatActivity
 
                 if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action))
                 {
-                    message_board.setText(message_board.getText() + "Discovery finished!\n");
-
                     if(discovery_in_progress)
+                    {
                         mBluetoothAdapter.startDiscovery();
+                        message_board.setText(message_board.getText() + "[" + DateFormat.getTimeInstance().format(new Date()) + "] Still looking for kiosk!\n");
+                    }
                 }
             }
         };
@@ -168,6 +207,7 @@ public class Home extends AppCompatActivity
         connect_btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
                 mmDevice = mBluetoothAdapter.getRemoteDevice("chj");
                 (new ConnectThread()).start();
             }
@@ -255,6 +295,9 @@ public class Home extends AppCompatActivity
                         //Yes button clicked
                         assert(!gps_in_use);
                         assert(!kiosk_mode);
+                        s_s_button.setImageResource(android.R.drawable.ic_media_play);
+                        reset_analysis_flag();
+                        fetch_kiosk_info();
                         request_location_updates();
                         break;
 
@@ -281,16 +324,50 @@ public class Home extends AppCompatActivity
 
                 if(msg.what == MESSAGE_DOKI)
                 {
+                    disease = (String) msg.obj;
                     AlertDialog.Builder builder = new AlertDialog.Builder(Home.this);
-                    builder.setMessage("DOKI thinks that you might have \""+(String)msg.obj+"\".\nWould you like to go to a health kiosk for further tests?");
+                    builder.setMessage("DOKI thinks that you might have \""+disease+"\".\nWould you like to go to a health kiosk for further tests?");
                     builder.setNegativeButton("No",dialogClickListener);
                     builder.setPositiveButton("Yes",dialogClickListener);
                     builder.show();
+                }
+
+                if(msg.what == MESSAGE_GRAPH_ADD)
+                {
+                    String g_msg [] = ((String)msg.obj).split("\\s+");
+
+                    double i = Integer.parseInt(g_msg[0]);
+                    double x = Integer.parseInt(g_msg[1]);
+                    double y = Integer.parseInt(g_msg[2]);
+                    double z = Integer.parseInt(g_msg[3]);
+
+                    DataPoint vx_data = new DataPoint(i,x);
+                    DataPoint vy_data = new DataPoint(i,y);
+                    DataPoint vz_data = new DataPoint(i,z);
+
+                    series_vx.appendData(vx_data,true,10);
+                    series_vy.appendData(vy_data,true,10);
+                    series_vz.appendData(vz_data,true,10);
+                }
+
+                if(msg.what == MESSAGE_GRAPH_RST)
+                {
+
                 }
             }
         };
 
         DOKI engine = new DOKI();
+
+        GraphView graph = (GraphView) findViewById(R.id.graph);
+        series_vx = new LineGraphSeries<>();
+        series_vy = new LineGraphSeries<>();
+        series_vz = new LineGraphSeries<>();
+        graph.addSeries(series_vx);
+        graph.addSeries(series_vy);
+        graph.addSeries(series_vz);
+
+        //graph.getViewport().setMinX(1);// FIXME
     }
 
     protected void request_location_updates()
@@ -333,19 +410,21 @@ public class Home extends AppCompatActivity
                 {
                     kiosk_loc = location;
 
-                    message_board.setText("Location set!");
+                    String res = "Location set to:\n";
+
+                    res += "Accuracy  : " + Float.toString(location.getAccuracy()) + "\n";
+                    res += "Altitude  : " + Double.toString(location.getAltitude()) + "\n";
+                    res += "Latitude  : " + Double.toString(location.getLatitude()) + "\n";
+                    res += "Longitude : " + Double.toString(location.getLongitude()) + "\n";
+
+                    message_board.setText(res);
 
                     disable_kiosk_mode();
                     cancel_location_updates();
                 }
                 else
                 {
-                    String res = "";
-
-                    res += "Accuracy  : " + Float.toString(location.getAccuracy()) + "\n";
-                    res += "Altitude  : " + Double.toString(location.getAltitude()) + "\n";
-                    res += "Latitude  : " + Double.toString(location.getLatitude()) + "\n";
-                    res += "Longitude : " + Double.toString(location.getLongitude()) + "\n";
+                    String res = "Accuracy  : " + Float.toString(location.getAccuracy()) + "\n";
 
                     message_board.setText(res);
                 }
@@ -425,7 +504,106 @@ public class Home extends AppCompatActivity
         }
     }
 
-    private class DOKI extends Thread {
+    public PublicKey getKey(String key){
+        try{
+            byte[] byteKey = Base64.decode(key.getBytes(), Base64.DEFAULT);
+            X509EncodedKeySpec X509publicKey = new X509EncodedKeySpec(byteKey);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+
+            return kf.generatePublic(X509publicKey);
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private void fetch_kiosk_info()
+    {
+        message_board.setText("Fetching kiosk info...");
+
+        try {
+            HttpRequestTaskAsync authReq = new HttpRequestTaskAsync(new URL("http://10.146.76.215:8080/api/authenticate"));
+            JSONObject auth = new JSONObject();
+            auth.put("user", "chirag");
+            auth.put("pass", "password");
+            JSONObject authResp = new JSONObject(authReq.execute(auth).get());
+            String token = authResp.getString("token");
+            HttpRequestTaskAsync kioskReq = new HttpRequestTaskAsync(new URL("http://10.146.76.215:8080/api/getkiosk"));
+            JSONObject kiosk = new JSONObject();
+            JSONObject kioskLoc = new JSONObject();
+            kioskLoc.put("latitude", -7);
+            kioskLoc.put("longitude", 8);
+            kiosk.put("loc", kioskLoc);
+            kiosk.put("token", token);
+            JSONObject kioskResp = new JSONObject(kioskReq.execute(kiosk).get());
+            JSONObject kioskRespData = kioskResp.getJSONObject("kiosk");
+            kiosk_id = kioskRespData.getString("bluetoothName");
+            kiosk_addr = kioskRespData.getString("mac");
+            pubkey = getKey(kioskRespData.getString("pubkey"));
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void send_message(String msg)
+    {
+        mmDevice = mBluetoothAdapter.getRemoteDevice(kiosk_id);
+
+        ConnectThread t1 = new ConnectThread();
+        t1.start();
+
+        try {
+            t1.join();
+        }
+        catch(InterruptedException e)
+        {
+            message_board.setText("Something bad happened : " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        byte[] encodedBytes = null;
+
+        try
+        {
+            Cipher c = Cipher.getInstance("RSA");
+            c.init(Cipher.ENCRYPT_MODE, pubkey);
+            encodedBytes = c.doFinal(msg.getBytes());
+        } catch (NoSuchPaddingException e) {
+                e.printStackTrace();
+        } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+        } catch (InvalidKeyException e) {
+                e.printStackTrace();
+        } catch (BadPaddingException e) {
+                e.printStackTrace();
+        } catch (IllegalBlockSizeException e) {
+                e.printStackTrace();
+        }
+
+        OutputStream tmpOut = null;
+        OutputStream mmOutStream;
+
+        // Get the input and output streams, using temp objects because
+        // member streams are final
+        try {
+            tmpOut = mmSocket.getOutputStream();
+        } catch (IOException e) {
+            message_board.setText("Something bad happened 1\n");
+        }
+
+        mmOutStream = tmpOut;
+
+        try {
+            mmOutStream.write(encodedBytes);
+            mmOutStream.flush();
+        } catch (IOException e) {
+            message_board.setText("Something bad happened 2\n");
+        }
+    }
+
+    private class DOKI{
 
         private EKG user;
         private ArrayList<EKG> patients;
@@ -478,6 +656,20 @@ public class Home extends AppCompatActivity
                     //System.out.println("Reading entry#"+Integer.toString(curr_index));
 
                     Signal val = user.read(curr_index);
+
+                    if(threshold==15)
+                    {
+                        String msg = "";
+                        msg += Integer.toString(curr_index);
+                        msg += " ";
+                        msg += Integer.toString(val.data[12]);
+                        msg += " ";
+                        msg += Integer.toString(val.data[13]);
+                        msg += " ";
+                        msg += Integer.toString(val.data[14]);
+
+                        mainHandler.obtainMessage(MESSAGE_GRAPH_ADD, msg).sendToTarget();
+                    }
 
                     for(int i=0; i<patients.size(); i++)
                     {
