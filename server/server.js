@@ -11,6 +11,7 @@ var bcrypt     = require('bcrypt');
 var jwt        = require('jsonwebtoken');
 var config     = require('./config');
 var User       = require('./app/models/user');
+var Kiosk      = require('./app/models/kiosk');
 
 // configuration
 var port = process.env.PORT || 8080;
@@ -79,34 +80,68 @@ apiRoutes.get('/', function(req, res) {
     res.json({ success: true });
 });
 
-apiRoutes.get('/users', function(req, res) {
-    User.find({}, function(err, users) {
-        res.json(users);
-    });
-});
 
-app.post('/setup', function(req, res) {
+apiRoutes.post('/adduser', function(req, res) {
     var user = new User({
         name: req.body.user,
         password: bcrypt.hashSync(req.body.pass, salt),
-        admin: true
+        admin: false
     });
 
     user.save(function(err) {
         if(err) throw err;
-        console.log(req.body.user + ':' + req.body.pass + ' saved successfully.');
+        console.log('user: ' + req.body.user + ':' + req.body.pass + ' added successfully.');
         res.json({ success: true });
+    });
+});
+
+apiRoutes.post('/addkiosk', function(req, res) {
+    var kiosk = new Kiosk({
+        loc: {
+            longitude: req.body.loc.longitude,
+            latitude : req.body.loc.latitude,
+            altitude : req.body.loc.altitude
+        },
+        pubkey: req.body.pubkey,
+        token: req.body.token,
+        mac: req.body.mac,
+        bluetoothName: req.body.bluetoothName
+    });
+
+    kiosk.save(function(err) {
+        if(err) throw err;
+        console.log('kiosk (' + req.body.loc_x + ', ' + req.body.loc_y + ' added successfully.');
+        res.json({ success: true });
+    });
+});
+
+apiRoutes.post('/getkiosk', function(req, res) {
+    Kiosk.find({}, function(err, kiosks) {
+        kiosks.sort(function(a, b) {
+            var long_dist_a = req.body.loc.longitude - a.loc.longitude;
+            var lat_dist_a = req.body.loc.latitude - a.loc.latitude;
+            var distance_a = Math.sqrt(long_dist_a * long_dist_a + lat_dist_a * lat_dist_a);
+            var long_dist_b = req.body.loc.longitude - a.loc.longitude;
+            var lat_dist_b = req.body.loc.latitude - a.loc.latitude;
+            var distance_b = Math.sqrt(long_dist_b * long_dist_b + lat_dist_b * lat_dist_b);
+            return distance_a - distance_b;
+        });
+
+        res.json({ success: true, kiosk: kiosks[0] });
     });
 });
 
 app.use('/api', apiRoutes);
 
 // start the server
-spdy.createServer({ key:  fs.readFileSync('./server.key'), cert: fs.readFileSync('./server.crt') }, app).listen(port, function(error) {
-    if(error) {
-        console.log(error);
-        return process.exit(1);
-    } else {
-        console.log('Listening on port: ' + port);
-    }
-});
+app.listen(port);
+/*
+ *spdy.createServer({ key:  fs.readFileSync('./server.key'), cert: fs.readFileSync('./server.crt') }, app).listen(port, function(err) {
+ *    if(err) {
+ *        console.log(err);
+ *        return process.exit(1);
+ *    } else {
+ *        console.log('Listening on port: ' + port);
+ *    }
+ *});
+ */

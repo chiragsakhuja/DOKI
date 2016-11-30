@@ -1,7 +1,11 @@
 {
   "name": "node-token-jwt",
   "main": "server.js",
+  "engines": {
+      "node": ">=6.9.1"
+  },
   "scripts": {
+    "start": "node server.js",
     "dev": "node_modules/nodemon/bin/nodemon.js server.js"
   },
   "dependencies": {
