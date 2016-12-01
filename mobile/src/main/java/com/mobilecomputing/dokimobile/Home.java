@@ -20,6 +20,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
@@ -79,8 +80,9 @@ public class Home extends AppCompatActivity
     private boolean discovery_in_progress = false;
     private boolean kiosk_mode = false;
     /***************************************************************/
-    private Handler mainHandler;
+    private GraphView graph;
     private Location kiosk_loc;
+    private Handler mainHandler;
     private TextView message_board;
     private BluetoothSocket mmSocket;
     private BluetoothDevice mmDevice;
@@ -150,6 +152,7 @@ public class Home extends AppCompatActivity
         final FloatingActionButton s_s_button = (FloatingActionButton) findViewById(R.id.start_stop);
 
         message_board = (TextView) findViewById(R.id.msg);
+        message_board.setMovementMethod(new ScrollingMovementMethod());
 
         mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
@@ -332,6 +335,29 @@ public class Home extends AppCompatActivity
 
                 if(msg.what == MESSAGE_GRAPH_RST)
                 {
+                    graph.removeAllSeries();
+
+                    series_vx = new LineGraphSeries<>();
+                    series_vy = new LineGraphSeries<>();
+                    series_vz = new LineGraphSeries<>();
+
+                    series_vx.setColor(Color.BLUE);
+                    series_vy.setColor(Color.RED);
+                    series_vz.setColor(Color.GREEN);
+
+                    graph.addSeries(series_vx);
+                    graph.addSeries(series_vy);
+                    graph.addSeries(series_vz);
+
+                    graph.getViewport().setXAxisBoundsManual(true);
+                    graph.getViewport().setMinX(0);
+                    graph.getViewport().setMaxX(40);
+
+                    graph.getViewport().setYAxisBoundsManual(false);
+
+                    lastIndex = -1;
+
+                    /*
                     DataPoint vx_data = new DataPoint(-1,0);
                     DataPoint vy_data = new DataPoint(-1,0);
                     DataPoint vz_data = new DataPoint(-1,0);
@@ -343,13 +369,14 @@ public class Home extends AppCompatActivity
                     series_vx.resetData(vx_datas);
                     series_vy.resetData(vy_datas);
                     series_vz.resetData(vz_datas);
+                    */
                 }
             }
         };
 
         DOKI engine = new DOKI();
 
-        GraphView graph = (GraphView) findViewById(R.id.graph);
+        graph = (GraphView) findViewById(R.id.graph);
         series_vx = new LineGraphSeries<>();
         series_vy = new LineGraphSeries<>();
         series_vz = new LineGraphSeries<>();
@@ -427,9 +454,7 @@ public class Home extends AppCompatActivity
                 }
                 else
                 {
-                    String res = "Accuracy  : " + Float.toString(location.getAccuracy()) + "\n";
-
-                    message_board.setText(res);
+                    dump_message("Location accuracy  : " + Float.toString(location.getAccuracy()),true);
                 }
             }
             else
@@ -631,7 +656,7 @@ public class Home extends AppCompatActivity
             }
             catch(IOException e)
             {
-                mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Something bad happened while creating input stream\n" ).sendToTarget();
+                mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Something bad happened while creating input stream" ).sendToTarget();
             }
 
             (new init_thread()).start();
@@ -651,8 +676,6 @@ public class Home extends AppCompatActivity
         {
             for(int threshold=15; threshold>6; threshold--)
             {
-                //mainHandler.obtainMessage(MESSAGE_GRAPH_RST, "Kamyar").sendToTarget();
-
                 int curr_index = start_index;
 
                 for(int i=0; i<patients.size(); i++)
@@ -761,11 +784,12 @@ public class Home extends AppCompatActivity
                     {
                         index = 0;
                         reset_rewind_flag();
+                        mainHandler.obtainMessage(MESSAGE_GRAPH_RST,"Kamyar").sendToTarget();
                     }
 
                     if(analysis_in_progress && data_ready)
                     {
-                        mainHandler.obtainMessage(MESSAGE_APPEND,"Searching for " +Integer.toString(index)+"\n").sendToTarget();
+                        mainHandler.obtainMessage(MESSAGE_APPEND,"Looking for user entry#" +Integer.toString(index)).sendToTarget();
                         index = search(index);
                     }
                 }

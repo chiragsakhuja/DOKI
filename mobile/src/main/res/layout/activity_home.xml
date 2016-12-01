@@ -49,6 +49,8 @@
         android:layout_width="282dp"
         android:layout_height="185dp"
         android:layout_gravity="bottom"
+        android:maxLines = "10"
+        android:scrollbars = "vertical"
         android:id="@+id/msg" />
 
 </android.support.design.widget.CoordinatorLayout>
