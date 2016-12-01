@@ -11,6 +11,7 @@ import com.mobilecomputing.dokilibrary.HttpRequestTaskAsync;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.Key;
@@ -23,6 +24,7 @@ public class Register extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
+
     }
 
     public void registerKiosk(View view) {
@@ -56,6 +58,8 @@ public class Register extends AppCompatActivity {
         } catch (JSONException e) {
             e.printStackTrace();
         } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

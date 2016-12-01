@@ -22,7 +22,7 @@ public class HttpRequestTask {
             try {
                 /*
                 CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                InputStream caInput = new BufferedInputStream(new FileInputStream("server.crt"));
+                InputStream caInput = new BufferedInputStream(cert);
                 Certificate ca;
                 try {
                     ca = cf.generateCertificate(caInput);
@@ -42,7 +42,15 @@ public class HttpRequestTask {
 
                 SSLContext context = SSLContext.getInstance("TLS");
                 context.init(null, tmf.getTrustManagers(), null);
-                */
+
+                HttpsURLConnection connection = (HttpsURLConnection) postURL.openConnection();
+                connection.setSSLSocketFactory(context.getSocketFactory());
+                connection.setHostnameVerifier(new HostnameVerifier() {
+                    public boolean verify(String host, SSLSession sess) {
+                        return true;
+                    }
+                });
+*/
                 HttpURLConnection connection = (HttpURLConnection) postURL.openConnection();
                 connection.setDoOutput(true);
                 connection.setRequestMethod("POST"); // here you are telling that it is a POST request, which can be changed into "PUT", "GET", "DELETE" etc.

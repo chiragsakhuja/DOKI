@@ -139,7 +139,10 @@ public class Login extends AppCompatActivity {
                 return false;
             }
 
-            HttpRequestTask authenticate = new HttpRequestTask(authenticateURL);
+            HttpRequestTask authenticate = null;
+
+            authenticate = new HttpRequestTask(authenticateURL);
+
             try {
                 JSONObject result = new JSONObject(authenticate.execute(postData));
                 if (!result.getBoolean("success")) {

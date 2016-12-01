@@ -5,6 +5,7 @@
     <string name="button_unregister">Unregister</string>
     <string name="button_enable">Enable</string>
     <string name="button_disable">Disable</string>
+    <string name="home_message">Welcome to the DOKI kiosk!</string>
 
     <!-- Strings related to login -->
     <string name="prompt_user">Username</string>
@@ -15,12 +16,21 @@
     <string name="error_field_required">This field is required</string>
     <string name="title_activity_login">Sign in</string>
     <string name="button_login">Sign In</string>
+    <string name="login_signin">Log In</string>
+    <string name="login_cancel">Cancel</string>
 
     <!-- Strings related to register -->
     <string name="title_activity_register">Admin Panel</string>
 
     <!-- Strings related to server communication -->
-    <string name="server_url">http://192.168.1.48:8080/</string>
+    <string name="server_url">http://10.146.64.43:8080/</string>
     <string name="url_authenticate">api/authenticate</string>
     <string name="url_register_kiosk">api/addKiosk</string>
+    <string name="title_activity_user_profile">UserProfile</string>
+
+    <!-- Strings related to profile -->
+    <string name="user_name">Chirag Sakhuja</string>
+    <string name="user_age">Age: 24</string>
+    <string name="user_sex">Sex: M</string>
+    <string name="user_message">The reason for your visit is due to being at risk of Myocardial Infraction (heart attack).</string>
 </resources>

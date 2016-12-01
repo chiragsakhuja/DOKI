@@ -28,35 +28,19 @@ public class Home extends AppCompatActivity {
     private TextView bluetoothStatus;
     private TextView mainMessage;
     private AcceptThread serverSocketThread;
-    private Handler bluetoothHandler, mainHandler;
+    private Handler userSwitchHandler;
 
-    private final static int MESSAGE_RECEIVED = 1;
-    private final static int UPDATE_BLUETOOTH_STATUS = 2;
+    private final static int SWITCH_TO_USER_PROFILE = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
-        // Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
-        // setSupportActionBar(myToolbar);
 
-        // Set up handlers for display elements
-        bluetoothStatus = (TextView) findViewById(R.id.bluetooth_status);
-        mainMessage = (TextView) findViewById(R.id.main_message);
-
-        mainHandler = new Handler() {
+        userSwitchHandler = new Handler() {
             public void handleMessage(Message msg) {
-                if (msg.what == MESSAGE_RECEIVED) {
-                    mainMessage.setText(new String((byte[]) msg.obj));
-                }
-            }
-        };
-
-        bluetoothHandler = new Handler() {
-            public void handleMessage(Message msg) {
-                if (msg.what == UPDATE_BLUETOOTH_STATUS) {
-                    bluetoothStatus.setText((String) msg.obj);
-                }
+                Intent intent = new Intent(Home.this, UserProfile.class);
+                startActivity(intent);
             }
         };
 
@@ -69,6 +53,10 @@ public class Home extends AppCompatActivity {
                 bluetoothAdapter.enable();
             }
         }
+
+        Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0);
+        startActivity(discoverableIntent);
 
         serverSocketThread = new AcceptThread(bluetoothAdapter);
         serverSocketThread.start();
@@ -84,6 +72,8 @@ public class Home extends AppCompatActivity {
         private final String NAME = "DOKI Kiosk";
         private final UUID MY_UUID = new UUID(0x0000000000000000L, 0xdeadbeef0badcafeL);
 
+        private ConnectedThread activeConnection = null;
+
         public AcceptThread(BluetoothAdapter mBluetoothAdapter) {
             try {
                 Thread.sleep(2000);
@@ -98,10 +88,9 @@ public class Home extends AppCompatActivity {
                 // MY_UUID is the app's UUID string, also used by the client code
                 tmp = mBluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(NAME, MY_UUID);
             } catch (IOException e) {
+                e.printStackTrace();
             }
             mmServerSocket = tmp;
-
-            bluetoothHandler.obtainMessage(UPDATE_BLUETOOTH_STATUS, -1, -1, "Waiting for connection").sendToTarget();
         }
 
         public void run() {
@@ -111,26 +100,30 @@ public class Home extends AppCompatActivity {
                 try {
                     socket = mmServerSocket.accept();
                 } catch (IOException e) {
+                    e.printStackTrace();
                     break;
                 }
                 // If a connection was accepted
                 if (socket != null) {
                     // Do work to manage the connection (in a separate thread)
-                    manageConnectedSocket(socket);
+                    if (activeConnection != null) {
+                        activeConnection.cancel();
+                    }
+
+                    activeConnection = new ConnectedThread(socket);
+                    activeConnection.start();
+
+                    /*
                     try {
                         mmServerSocket.close();
                     } catch (IOException e) {
+                        e.printStackTrace();
                         break;
                     }
-                    break;
+                    */
                 }
             }
-        }
-
-        public void manageConnectedSocket(BluetoothSocket socket) {
-            bluetoothHandler.obtainMessage(UPDATE_BLUETOOTH_STATUS, -1, -1, "Waiting for message").sendToTarget();
-            ConnectedThread thread = new ConnectedThread(socket);
-            thread.start();
+            System.out.println("Should not be here");
         }
 
         /**
@@ -138,16 +131,15 @@ public class Home extends AppCompatActivity {
          */
         public void cancel() {
             try {
-                bluetoothHandler.obtainMessage(UPDATE_BLUETOOTH_STATUS, -1, -1, "Server not running").sendToTarget();
                 mmServerSocket.close();
             } catch (IOException e) {
+                e.printStackTrace();
             }
         }
 
         private class ConnectedThread extends Thread {
             private final BluetoothSocket mmSocket;
             private final InputStream mmInStream;
-            private final OutputStream mmOutStream;
 
             public ConnectedThread(BluetoothSocket socket) {
                 mmSocket = socket;
@@ -163,7 +155,6 @@ public class Home extends AppCompatActivity {
                 }
 
                 mmInStream = tmpIn;
-                mmOutStream = tmpOut;
             }
 
             public void run() {
@@ -180,8 +171,7 @@ public class Home extends AppCompatActivity {
                         c.init(Cipher.DECRYPT_MODE, GlobalState.getInstance().getPrivateKey());
                         buffer = c.doFinal(encodedBytes, 0, bytes);
                         // Send the obtained bytes to the UI activity
-                        mainHandler.obtainMessage(MESSAGE_RECEIVED, bytes, -1, buffer).sendToTarget();
-                        bluetoothHandler.obtainMessage(UPDATE_BLUETOOTH_STATUS, -1, -1, "Message received").sendToTarget();
+                        userSwitchHandler.sendEmptyMessage(1);
                     } catch (IOException e) {
                         break;
                     } catch (NoSuchPaddingException e) {
