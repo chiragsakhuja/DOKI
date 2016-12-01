@@ -7,7 +7,7 @@ package com.mobilecomputing.dokimobile;
 import	java.io.*;
 import	java.util.*;
 
-public class EKG extends Thread{
+public class EKG{
 
     public static float val_match_thr;
 

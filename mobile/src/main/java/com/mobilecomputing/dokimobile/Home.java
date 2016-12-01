@@ -55,10 +55,6 @@ import java.net.URL;
 
 public class Home extends AppCompatActivity
 {
-    //private static final float kiosk_accuracy = 24.0f;
-    //private static final double kiosk_latitude = 30.2788;
-    //private static final double kiosk_altitude = 118.0;
-    //private static final double kiosk_longitude = -97.7748;
     /***************************************************************/
     private String kiosk_id;
     private String kiosk_addr;
@@ -78,6 +74,7 @@ public class Home extends AppCompatActivity
     /***************************************************************/
     private boolean data_ready = false;
     private boolean gps_in_use = false;
+    private boolean rewind_requested = false;
     private boolean analysis_in_progress = false;
     private boolean discovery_in_progress = false;
     private boolean kiosk_mode = false;
@@ -96,9 +93,10 @@ public class Home extends AppCompatActivity
     /***************************************************************/
     protected void set_ready_flag(){data_ready = true;}
     protected void set_analysis_flag() {analysis_in_progress = true;}
-    protected void reset_analysis_flag(){analysis_in_progress = false;}
+    protected void reset_rewind_flag() {rewind_requested = false;}
     protected void enable_kiosk_mode() { kiosk_mode = true; }
     protected void disable_kiosk_mode() { kiosk_mode = false; }
+    protected void reset_analysis_flag(){analysis_in_progress = false;}
     protected void stop_discovery()
     {
         discovery_in_progress = false;
@@ -120,14 +118,20 @@ public class Home extends AppCompatActivity
     }
     /***************************************************************/
     /***************************************************************/
-    private void    setup_kiosk_loc()
+
+    private void dump_message(String msg, Boolean append)
     {
-        /* TO BE WRITTEN BY CHIRAG */
-        kiosk_loc = new Location("kiosk_location");
-        kiosk_loc.setLatitude(1.0);
-        kiosk_loc.setAltitude(1.0);
-        kiosk_loc.setAccuracy(1.0f);
-        kiosk_loc.setLongitude(1.0);
+        String time = "[" + DateFormat.getTimeInstance().format(new Date()) + "] ";
+
+        if(append)
+        {
+            message_board.setText(message_board.getText()+time+msg+"\n");
+
+        }
+        else
+        {
+            message_board.setText(time+msg+"\n");
+        }
     }
 
     @Override
@@ -142,8 +146,7 @@ public class Home extends AppCompatActivity
         setContentView(R.layout.activity_home);
 
         FloatingActionButton loc_btn = (FloatingActionButton) findViewById(R.id.loc);
-        FloatingActionButton send_btn = (FloatingActionButton) findViewById(R.id.send);
-        FloatingActionButton connect_btn = (FloatingActionButton) findViewById(R.id.connect);
+        FloatingActionButton rewind_btn = (FloatingActionButton) findViewById(R.id.rewind);
         final FloatingActionButton s_s_button = (FloatingActionButton) findViewById(R.id.start_stop);
 
         message_board = (TextView) findViewById(R.id.msg);
@@ -171,14 +174,14 @@ public class Home extends AppCompatActivity
                     {
                         if(rssi>signal_threshold)
                         {
-                            message_board.setText("Initiating data transfer to " + kiosk_id + " (RSSI = " + rssi + "dBm)\n");
+                            dump_message("Initiating data transfer to " + kiosk_id + " (RSSI = " + rssi + "dBm)",false);
                             stop_discovery();
                             send_message(disease);
-                            message_board.setText("Done with transfer\n");
+                            dump_message("Done with tranfer",true);
                         }
                         else
                         {
-                            message_board.setText("Kiosk in range (RSSI = " + rssi + "dBm)\n");
+                            dump_message("Kiosk in range (RSSI = " + rssi + "dBm)",true);
                         }
                     }
                 }
@@ -196,7 +199,7 @@ public class Home extends AppCompatActivity
                     if(discovery_in_progress)
                     {
                         mBluetoothAdapter.startDiscovery();
-                        message_board.setText(message_board.getText() + "[" + DateFormat.getTimeInstance().format(new Date()) + "] Still looking for kiosk!\n");
+                        dump_message("Still looking for kiosk",true);
                     }
                 }
             }
@@ -206,48 +209,14 @@ public class Home extends AppCompatActivity
         registerReceiver(dev_found_recv, new IntentFilter(BluetoothDevice.ACTION_FOUND));
         registerReceiver(dis_done_recv, new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED));
 
-        connect_btn.setOnClickListener(new View.OnClickListener() {
+        rewind_btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
 
-                /*
-                mmDevice = mBluetoothAdapter.getRemoteDevice("chj");
-                (new ConnectThread()).start();
-                */
+                rewind_requested = true;
 
-                lastIndex++;
-
-                DataPoint newpoint = new DataPoint(lastIndex,lastIndex);
-
-                series_vx.appendData(newpoint,true,10);
-            }
-        });
-
-        send_btn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (!mBluetoothAdapter.isEnabled()) {
-                    message_board.setText("Bluetooth is not enabled!");
-                } else {
-                    OutputStream tmpOut = null;
-                    OutputStream mmOutStream;
-
-                    // Get the input and output streams, using temp objects because
-                    // member streams are final
-                    try {
-                        tmpOut = mmSocket.getOutputStream();
-                    } catch (IOException e) {
-                    }
-
-                    mmOutStream = tmpOut;
-
-                    try {
-                        mmOutStream.write(new byte[]{'k', 'a', 'm', 'y', 'a', 'r'});
-                    } catch (IOException e) {
-                    }
-
-                    message_board.setText("Alright!");
-                }
+                Snackbar.make(view, "Rewinding user record to beginning", Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show();
             }
         });
 
@@ -258,7 +227,7 @@ public class Home extends AppCompatActivity
             {
                 if(kiosk_mode)
                 {
-                    Snackbar.make(view, "Kiosk location detection is in progress!", Snackbar.LENGTH_LONG)
+                    Snackbar.make(view, "Kiosk location detection is in progress !", Snackbar.LENGTH_LONG)
                             .setAction("Action", null).show();
                 }
                 {
@@ -290,7 +259,7 @@ public class Home extends AppCompatActivity
                     }
                     else
                     {
-                        Snackbar.make(view, "Still busy reading database!", Snackbar.LENGTH_LONG)
+                        Snackbar.make(view, "Still busy reading database !", Snackbar.LENGTH_LONG)
                                 .setAction("Action", null).show();
                     }
                 }
@@ -324,12 +293,12 @@ public class Home extends AppCompatActivity
             {
                 if(msg.what == MESSAGE_OVERWRITE)
                 {
-                    message_board.setText((String)msg.obj);
+                    dump_message((String)msg.obj,false);
                 }
 
                 if(msg.what == MESSAGE_APPEND)
                 {
-                    message_board.setText(message_board.getText()+(String)msg.obj);
+                    dump_message((String)msg.obj,true);
                 }
 
                 if(msg.what == MESSAGE_DOKI)
@@ -404,7 +373,7 @@ public class Home extends AppCompatActivity
     {
         gps_in_use = true;
 
-        message_board.setText("Requesting location updates...");
+        dump_message("Requesting location updates...",true);
 
         try
         {
@@ -412,7 +381,7 @@ public class Home extends AppCompatActivity
         }
         catch(SecurityException e)
         {
-            message_board.setText("permission denied while requesting GPS updates");
+            dump_message("permission denied while requesting GPS updates",true);
         }
     }
 
@@ -426,7 +395,7 @@ public class Home extends AppCompatActivity
         }
         catch(SecurityException e)
         {
-            message_board.setText("permission denied while canceling GPS updates");
+            dump_message("permission denied while canceling GPS updates",true);
         }
     }
 
@@ -439,6 +408,8 @@ public class Home extends AppCompatActivity
                 if(location.getAccuracy() < accuracy_threshold)
                 {
                     kiosk_loc = location;
+
+                    dump_message("Kiosk location is set",true);
 
                     /*
                     String res = "Location set to:\n";
@@ -474,19 +445,19 @@ public class Home extends AppCompatActivity
         @Override
         public void onProviderDisabled(String provider)
         {
-            message_board.setText("GPS location provider is disabled");
+            dump_message("GPS location provider is disabled",true);
         }
 
         @Override
         public void onProviderEnabled(String provider)
         {
-            message_board.setText("GPS location provider is enabled");
+            dump_message("GPS location provider is enabled",true);
         }
 
         @Override
         public void onStatusChanged(String provider, int status, Bundle extras)
         {
-            message_board.setText("GPS location provider's status has changed to " +  Integer.toString(status) );
+            dump_message("GPS location provider's status has changed to " + Integer.toString(status),true);
         }
     };
 
@@ -667,6 +638,15 @@ public class Home extends AppCompatActivity
             (new analyze_thread()).start();
         }
 
+        public Boolean check_state()
+        {
+            while(!analysis_in_progress);
+
+            if(rewind_requested) {return true;}
+
+            return false;
+        }
+
         public int search(int start_index)
         {
             for(int threshold=15; threshold>6; threshold--)
@@ -681,7 +661,7 @@ public class Home extends AppCompatActivity
                 int match_count = 100;
 
                 /***********************************/
-                if(!analysis_in_progress){return 0;}
+                if(check_state()){return 0;}
                 /************************************/
 
                 while(match_count > 1)
@@ -715,7 +695,7 @@ public class Home extends AppCompatActivity
                 }
 
                 /***********************************/
-                if(!analysis_in_progress){return 0;}
+                if(check_state()){return 0;}
                 /************************************/
 
                 // if there was no match, just lower threshold
@@ -729,7 +709,7 @@ public class Home extends AppCompatActivity
                         Integer match = patients.get(i).get_match();
 
                         /***********************************/
-                        if(!analysis_in_progress){return 0;}
+                        if(check_state()){return 0;}
                         /************************************/
 
                         // lets make sure there is no more match
@@ -777,15 +757,16 @@ public class Home extends AppCompatActivity
             {
                 while(true)
                 {
+                    if(rewind_requested)
+                    {
+                        index = 0;
+                        reset_rewind_flag();
+                    }
+
                     if(analysis_in_progress && data_ready)
                     {
                         mainHandler.obtainMessage(MESSAGE_APPEND,"Searching for " +Integer.toString(index)+"\n").sendToTarget();
-
                         index = search(index);
-                    }
-                    else
-                    {
-                        index = 0;
                     }
                 }
             }
@@ -803,23 +784,24 @@ public class Home extends AppCompatActivity
 
                     /* TODO : EKGs dont need to be thread */
 
-                    user.start();
+                    //user.start();
+                    //for(int i=0; i<patients.size(); i++) { patients.get(i).start(); }
 
-                    for(int i=0; i<patients.size(); i++) { patients.get(i).start(); }
+                    mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Reading database").sendToTarget();
 
-                    mainHandler.obtainMessage(MESSAGE_OVERWRITE,"[" +   DateFormat.getTimeInstance().format(new Date()) + "] Reading database\n" ).sendToTarget();
+                    user.run();
+                    for(int i=0; i<patients.size(); i++) { patients.get(i).run(); }
 
-                    user.join();
+                    //user.join();
+                    //for(int i=0; i<patients.size(); i++) { patients.get(i).join(); }
 
-                    for(int i=0; i<patients.size(); i++) { patients.get(i).join(); }
-
-                    mainHandler.obtainMessage(MESSAGE_APPEND,"[" +   DateFormat.getTimeInstance().format(new Date()) + "] Data is now loaded!\n").sendToTarget();
+                    mainHandler.obtainMessage(MESSAGE_APPEND,"Data loaded").sendToTarget();
 
                     set_ready_flag();
 
                     return;
                 }
-                catch(InterruptedException e)
+                catch(Exception e)
                 {
                     mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Interrupted Exception during EKG creation\n").sendToTarget();
                     System.exit(3);

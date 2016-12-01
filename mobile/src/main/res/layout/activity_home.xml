@@ -17,12 +17,12 @@
         android:id="@+id/include" />
 
     <android.support.design.widget.FloatingActionButton
-        android:id="@+id/send"
+        android:id="@+id/rewind"
         app:fabSize="mini"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        app:srcCompat="@android:drawable/ic_menu_send" />
+        app:srcCompat="@android:drawable/ic_media_previous" />
 
     <android.support.design.widget.FloatingActionButton
         android:layout_width="wrap_content"
@@ -42,18 +42,13 @@
         app:fabSize="normal"
         app:srcCompat="@android:drawable/ic_media_play"
         android:id="@+id/start_stop"
-        app:layout_anchor="@+id/include"
-        app:layout_anchorGravity="center_vertical|center_horizontal"
         android:layout_gravity="center_vertical|center_horizontal" />
 
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/connect"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        app:fabSize="mini"
-        app:srcCompat="@android:drawable/stat_sys_phone_call"
-        app:layout_anchor="@+id/include"
-        app:layout_anchorGravity="bottom|center_horizontal" />
+    <TextView
+        android:text="Welcome to DOKI Mobile !"
+        android:layout_width="282dp"
+        android:layout_height="185dp"
+        android:layout_gravity="bottom"
+        android:id="@+id/msg" />
 
 </android.support.design.widget.CoordinatorLayout>
