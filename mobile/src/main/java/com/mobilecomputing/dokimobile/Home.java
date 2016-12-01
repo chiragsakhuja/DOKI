@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -63,6 +64,7 @@ public class Home extends AppCompatActivity
     private String kiosk_addr;
     private PublicKey pubkey;
     private String disease;
+    private Integer lastIndex;
     /***************************************************************/
     private static final int dist_threshold = 50;  // in meters
     private static final int signal_threshold = -60; // in decibel
@@ -152,7 +154,7 @@ public class Home extends AppCompatActivity
 
         mBluetoothAdapter.enable();
 
-        //setup_kiosk_loc();
+        lastIndex = -1;
 
         BroadcastReceiver dev_found_recv = new BroadcastReceiver(){
             @Override
@@ -208,8 +210,16 @@ public class Home extends AppCompatActivity
             @Override
             public void onClick(View view) {
 
+                /*
                 mmDevice = mBluetoothAdapter.getRemoteDevice("chj");
                 (new ConnectThread()).start();
+                */
+
+                lastIndex++;
+
+                DataPoint newpoint = new DataPoint(lastIndex,lastIndex);
+
+                series_vx.appendData(newpoint,true,10);
             }
         });
 
@@ -336,23 +346,34 @@ public class Home extends AppCompatActivity
                 {
                     String g_msg [] = ((String)msg.obj).split("\\s+");
 
-                    double i = Integer.parseInt(g_msg[0]);
-                    double x = Integer.parseInt(g_msg[1]);
-                    double y = Integer.parseInt(g_msg[2]);
-                    double z = Integer.parseInt(g_msg[3]);
+                    double x = Integer.parseInt(g_msg[0]);
+                    double y = Integer.parseInt(g_msg[1]);
+                    double z = Integer.parseInt(g_msg[2]);
 
-                    DataPoint vx_data = new DataPoint(i,x);
-                    DataPoint vy_data = new DataPoint(i,y);
-                    DataPoint vz_data = new DataPoint(i,z);
+                    lastIndex++;
 
-                    series_vx.appendData(vx_data,true,10);
-                    series_vy.appendData(vy_data,true,10);
-                    series_vz.appendData(vz_data,true,10);
+                    DataPoint vx_data = new DataPoint(lastIndex,x);
+                    DataPoint vy_data = new DataPoint(lastIndex,y);
+                    DataPoint vz_data = new DataPoint(lastIndex,z);
+
+                    series_vx.appendData(vx_data,true,40);
+                    series_vy.appendData(vy_data,true,40);
+                    series_vz.appendData(vz_data,true,40);
                 }
 
                 if(msg.what == MESSAGE_GRAPH_RST)
                 {
+                    DataPoint vx_data = new DataPoint(-1,0);
+                    DataPoint vy_data = new DataPoint(-1,0);
+                    DataPoint vz_data = new DataPoint(-1,0);
 
+                    DataPoint vx_datas[] = new DataPoint[]{vx_data};
+                    DataPoint vy_datas[] = new DataPoint[]{vy_data};
+                    DataPoint vz_datas[] = new DataPoint[]{vz_data};
+
+                    series_vx.resetData(vx_datas);
+                    series_vy.resetData(vy_datas);
+                    series_vz.resetData(vz_datas);
                 }
             }
         };
@@ -363,11 +384,20 @@ public class Home extends AppCompatActivity
         series_vx = new LineGraphSeries<>();
         series_vy = new LineGraphSeries<>();
         series_vz = new LineGraphSeries<>();
+
+        series_vx.setColor(Color.BLUE);
+        series_vy.setColor(Color.RED);
+        series_vz.setColor(Color.GREEN);
+
         graph.addSeries(series_vx);
         graph.addSeries(series_vy);
         graph.addSeries(series_vz);
 
-        //graph.getViewport().setMinX(1);// FIXME
+        graph.getViewport().setXAxisBoundsManual(true);
+        graph.getViewport().setMinX(0);
+        graph.getViewport().setMaxX(40);
+
+        graph.getViewport().setYAxisBoundsManual(false);
     }
 
     protected void request_location_updates()
@@ -378,7 +408,7 @@ public class Home extends AppCompatActivity
 
         try
         {
-            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10, 0, mLocationListener);
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, mLocationListener);
         }
         catch(SecurityException e)
         {
@@ -410,6 +440,7 @@ public class Home extends AppCompatActivity
                 {
                     kiosk_loc = location;
 
+                    /*
                     String res = "Location set to:\n";
 
                     res += "Accuracy  : " + Float.toString(location.getAccuracy()) + "\n";
@@ -418,6 +449,7 @@ public class Home extends AppCompatActivity
                     res += "Longitude : " + Double.toString(location.getLongitude()) + "\n";
 
                     message_board.setText(res);
+                    */
 
                     disable_kiosk_mode();
                     cancel_location_updates();
@@ -469,7 +501,7 @@ public class Home extends AppCompatActivity
             // Get a BluetoothSocket to connect with the given BluetoothDevice
             try {
                 // MY_UUID is the app's UUID string, also used by the server code
-                tmp = mmDevice.createRfcommSocketToServiceRecord(MY_UUID);
+                tmp = mmDevice.createInsecureRfcommSocketToServiceRecord(MY_UUID);
             } catch (IOException e) {
             }
             mmSocket = tmp;
@@ -549,13 +581,14 @@ public class Home extends AppCompatActivity
 
     private void send_message(String msg)
     {
-        mmDevice = mBluetoothAdapter.getRemoteDevice(kiosk_id);
+        mmDevice = mBluetoothAdapter.getRemoteDevice(kiosk_addr);
 
         ConnectThread t1 = new ConnectThread();
         t1.start();
 
         try {
             t1.join();
+            t1.cancel();
         }
         catch(InterruptedException e)
         {
@@ -638,6 +671,8 @@ public class Home extends AppCompatActivity
         {
             for(int threshold=15; threshold>6; threshold--)
             {
+                //mainHandler.obtainMessage(MESSAGE_GRAPH_RST, "Kamyar").sendToTarget();
+
                 int curr_index = start_index;
 
                 for(int i=0; i<patients.size(); i++)
@@ -657,11 +692,9 @@ public class Home extends AppCompatActivity
 
                     Signal val = user.read(curr_index);
 
-                    if(threshold==15)
+                    if(lastIndex<curr_index)
                     {
                         String msg = "";
-                        msg += Integer.toString(curr_index);
-                        msg += " ";
                         msg += Integer.toString(val.data[12]);
                         msg += " ";
                         msg += Integer.toString(val.data[13]);
