@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -19,6 +20,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Base64;
 import android.view.View;
 import android.widget.Button;
@@ -54,15 +56,12 @@ import java.net.URL;
 
 public class Home extends AppCompatActivity
 {
-    //private static final float kiosk_accuracy = 24.0f;
-    //private static final double kiosk_latitude = 30.2788;
-    //private static final double kiosk_altitude = 118.0;
-    //private static final double kiosk_longitude = -97.7748;
     /***************************************************************/
     private String kiosk_id;
     private String kiosk_addr;
     private PublicKey pubkey;
     private String disease;
+    private Integer lastIndex;
     /***************************************************************/
     private static final int dist_threshold = 50;  // in meters
     private static final int signal_threshold = -60; // in decibel
@@ -76,12 +75,14 @@ public class Home extends AppCompatActivity
     /***************************************************************/
     private boolean data_ready = false;
     private boolean gps_in_use = false;
+    private boolean rewind_requested = false;
     private boolean analysis_in_progress = false;
     private boolean discovery_in_progress = false;
     private boolean kiosk_mode = false;
     /***************************************************************/
-    private Handler mainHandler;
+    private GraphView graph;
     private Location kiosk_loc;
+    private Handler mainHandler;
     private TextView message_board;
     private BluetoothSocket mmSocket;
     private BluetoothDevice mmDevice;
@@ -94,9 +95,10 @@ public class Home extends AppCompatActivity
     /***************************************************************/
     protected void set_ready_flag(){data_ready = true;}
     protected void set_analysis_flag() {analysis_in_progress = true;}
-    protected void reset_analysis_flag(){analysis_in_progress = false;}
+    protected void reset_rewind_flag() {rewind_requested = false;}
     protected void enable_kiosk_mode() { kiosk_mode = true; }
     protected void disable_kiosk_mode() { kiosk_mode = false; }
+    protected void reset_analysis_flag(){analysis_in_progress = false;}
     protected void stop_discovery()
     {
         discovery_in_progress = false;
@@ -118,14 +120,20 @@ public class Home extends AppCompatActivity
     }
     /***************************************************************/
     /***************************************************************/
-    private void    setup_kiosk_loc()
+
+    private void dump_message(String msg, Boolean append)
     {
-        /* TO BE WRITTEN BY CHIRAG */
-        kiosk_loc = new Location("kiosk_location");
-        kiosk_loc.setLatitude(1.0);
-        kiosk_loc.setAltitude(1.0);
-        kiosk_loc.setAccuracy(1.0f);
-        kiosk_loc.setLongitude(1.0);
+        String time = "[" + DateFormat.getTimeInstance().format(new Date()) + "] ";
+
+        if(append)
+        {
+            message_board.setText(message_board.getText()+time+msg+"\n");
+
+        }
+        else
+        {
+            message_board.setText(time+msg+"\n");
+        }
     }
 
     @Override
@@ -140,11 +148,11 @@ public class Home extends AppCompatActivity
         setContentView(R.layout.activity_home);
 
         FloatingActionButton loc_btn = (FloatingActionButton) findViewById(R.id.loc);
-        FloatingActionButton send_btn = (FloatingActionButton) findViewById(R.id.send);
-        FloatingActionButton connect_btn = (FloatingActionButton) findViewById(R.id.connect);
+        FloatingActionButton rewind_btn = (FloatingActionButton) findViewById(R.id.rewind);
         final FloatingActionButton s_s_button = (FloatingActionButton) findViewById(R.id.start_stop);
 
         message_board = (TextView) findViewById(R.id.msg);
+        message_board.setMovementMethod(new ScrollingMovementMethod());
 
         mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
 
@@ -152,7 +160,7 @@ public class Home extends AppCompatActivity
 
         mBluetoothAdapter.enable();
 
-        //setup_kiosk_loc();
+        lastIndex = -1;
 
         BroadcastReceiver dev_found_recv = new BroadcastReceiver(){
             @Override
@@ -169,14 +177,14 @@ public class Home extends AppCompatActivity
                     {
                         if(rssi>signal_threshold)
                         {
-                            message_board.setText("Initiating data transfer to " + kiosk_id + " (RSSI = " + rssi + "dBm)\n");
+                            dump_message("Initiating data transfer to " + kiosk_id + " (RSSI = " + rssi + "dBm)",false);
                             stop_discovery();
                             send_message(disease);
-                            message_board.setText("Done with transfer\n");
+                            dump_message("Done with tranfer",true);
                         }
                         else
                         {
-                            message_board.setText("Kiosk in range (RSSI = " + rssi + "dBm)\n");
+                            dump_message("Kiosk in range (RSSI = " + rssi + "dBm)",true);
                         }
                     }
                 }
@@ -194,7 +202,7 @@ public class Home extends AppCompatActivity
                     if(discovery_in_progress)
                     {
                         mBluetoothAdapter.startDiscovery();
-                        message_board.setText(message_board.getText() + "[" + DateFormat.getTimeInstance().format(new Date()) + "] Still looking for kiosk!\n");
+                        dump_message("Still looking for kiosk",true);
                     }
                 }
             }
@@ -204,40 +212,14 @@ public class Home extends AppCompatActivity
         registerReceiver(dev_found_recv, new IntentFilter(BluetoothDevice.ACTION_FOUND));
         registerReceiver(dis_done_recv, new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED));
 
-        connect_btn.setOnClickListener(new View.OnClickListener() {
+        rewind_btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
 
-                mmDevice = mBluetoothAdapter.getRemoteDevice("chj");
-                (new ConnectThread()).start();
-            }
-        });
+                rewind_requested = true;
 
-        send_btn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (!mBluetoothAdapter.isEnabled()) {
-                    message_board.setText("Bluetooth is not enabled!");
-                } else {
-                    OutputStream tmpOut = null;
-                    OutputStream mmOutStream;
-
-                    // Get the input and output streams, using temp objects because
-                    // member streams are final
-                    try {
-                        tmpOut = mmSocket.getOutputStream();
-                    } catch (IOException e) {
-                    }
-
-                    mmOutStream = tmpOut;
-
-                    try {
-                        mmOutStream.write(new byte[]{'k', 'a', 'm', 'y', 'a', 'r'});
-                    } catch (IOException e) {
-                    }
-
-                    message_board.setText("Alright!");
-                }
+                Snackbar.make(view, "Rewinding user record to beginning", Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show();
             }
         });
 
@@ -248,7 +230,7 @@ public class Home extends AppCompatActivity
             {
                 if(kiosk_mode)
                 {
-                    Snackbar.make(view, "Kiosk location detection is in progress!", Snackbar.LENGTH_LONG)
+                    Snackbar.make(view, "Kiosk location detection is in progress !", Snackbar.LENGTH_LONG)
                             .setAction("Action", null).show();
                 }
                 {
@@ -280,7 +262,7 @@ public class Home extends AppCompatActivity
                     }
                     else
                     {
-                        Snackbar.make(view, "Still busy reading database!", Snackbar.LENGTH_LONG)
+                        Snackbar.make(view, "Still busy reading database !", Snackbar.LENGTH_LONG)
                                 .setAction("Action", null).show();
                     }
                 }
@@ -314,12 +296,12 @@ public class Home extends AppCompatActivity
             {
                 if(msg.what == MESSAGE_OVERWRITE)
                 {
-                    message_board.setText((String)msg.obj);
+                    dump_message((String)msg.obj,false);
                 }
 
                 if(msg.what == MESSAGE_APPEND)
                 {
-                    message_board.setText(message_board.getText()+(String)msg.obj);
+                    dump_message((String)msg.obj,true);
                 }
 
                 if(msg.what == MESSAGE_DOKI)
@@ -336,53 +318,97 @@ public class Home extends AppCompatActivity
                 {
                     String g_msg [] = ((String)msg.obj).split("\\s+");
 
-                    double i = Integer.parseInt(g_msg[0]);
-                    double x = Integer.parseInt(g_msg[1]);
-                    double y = Integer.parseInt(g_msg[2]);
-                    double z = Integer.parseInt(g_msg[3]);
+                    double x = Integer.parseInt(g_msg[0]);
+                    double y = Integer.parseInt(g_msg[1]);
+                    double z = Integer.parseInt(g_msg[2]);
 
-                    DataPoint vx_data = new DataPoint(i,x);
-                    DataPoint vy_data = new DataPoint(i,y);
-                    DataPoint vz_data = new DataPoint(i,z);
+                    lastIndex++;
 
-                    series_vx.appendData(vx_data,true,10);
-                    series_vy.appendData(vy_data,true,10);
-                    series_vz.appendData(vz_data,true,10);
+                    DataPoint vx_data = new DataPoint(lastIndex,x);
+                    DataPoint vy_data = new DataPoint(lastIndex,y);
+                    DataPoint vz_data = new DataPoint(lastIndex,z);
+
+                    series_vx.appendData(vx_data,true,40);
+                    series_vy.appendData(vy_data,true,40);
+                    series_vz.appendData(vz_data,true,40);
                 }
 
                 if(msg.what == MESSAGE_GRAPH_RST)
                 {
+                    graph.removeAllSeries();
 
+                    series_vx = new LineGraphSeries<>();
+                    series_vy = new LineGraphSeries<>();
+                    series_vz = new LineGraphSeries<>();
+
+                    series_vx.setColor(Color.BLUE);
+                    series_vy.setColor(Color.RED);
+                    series_vz.setColor(Color.GREEN);
+
+                    graph.addSeries(series_vx);
+                    graph.addSeries(series_vy);
+                    graph.addSeries(series_vz);
+
+                    graph.getViewport().setXAxisBoundsManual(true);
+                    graph.getViewport().setMinX(0);
+                    graph.getViewport().setMaxX(40);
+
+                    graph.getViewport().setYAxisBoundsManual(false);
+
+                    lastIndex = -1;
+
+                    /*
+                    DataPoint vx_data = new DataPoint(-1,0);
+                    DataPoint vy_data = new DataPoint(-1,0);
+                    DataPoint vz_data = new DataPoint(-1,0);
+
+                    DataPoint vx_datas[] = new DataPoint[]{vx_data};
+                    DataPoint vy_datas[] = new DataPoint[]{vy_data};
+                    DataPoint vz_datas[] = new DataPoint[]{vz_data};
+
+                    series_vx.resetData(vx_datas);
+                    series_vy.resetData(vy_datas);
+                    series_vz.resetData(vz_datas);
+                    */
                 }
             }
         };
 
         DOKI engine = new DOKI();
 
-        GraphView graph = (GraphView) findViewById(R.id.graph);
+        graph = (GraphView) findViewById(R.id.graph);
         series_vx = new LineGraphSeries<>();
         series_vy = new LineGraphSeries<>();
         series_vz = new LineGraphSeries<>();
+
+        series_vx.setColor(Color.BLUE);
+        series_vy.setColor(Color.RED);
+        series_vz.setColor(Color.GREEN);
+
         graph.addSeries(series_vx);
         graph.addSeries(series_vy);
         graph.addSeries(series_vz);
 
-        //graph.getViewport().setMinX(1);// FIXME
+        graph.getViewport().setXAxisBoundsManual(true);
+        graph.getViewport().setMinX(0);
+        graph.getViewport().setMaxX(40);
+
+        graph.getViewport().setYAxisBoundsManual(false);
     }
 
     protected void request_location_updates()
     {
         gps_in_use = true;
 
-        message_board.setText("Requesting location updates...");
+        dump_message("Requesting location updates...",true);
 
         try
         {
-            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10, 0, mLocationListener);
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, mLocationListener);
         }
         catch(SecurityException e)
         {
-            message_board.setText("permission denied while requesting GPS updates");
+            dump_message("permission denied while requesting GPS updates",true);
         }
     }
 
@@ -396,7 +422,7 @@ public class Home extends AppCompatActivity
         }
         catch(SecurityException e)
         {
-            message_board.setText("permission denied while canceling GPS updates");
+            dump_message("permission denied while canceling GPS updates",true);
         }
     }
 
@@ -410,6 +436,9 @@ public class Home extends AppCompatActivity
                 {
                     kiosk_loc = location;
 
+                    dump_message("Kiosk location is set",true);
+
+                    /*
                     String res = "Location set to:\n";
 
                     res += "Accuracy  : " + Float.toString(location.getAccuracy()) + "\n";
@@ -418,15 +447,14 @@ public class Home extends AppCompatActivity
                     res += "Longitude : " + Double.toString(location.getLongitude()) + "\n";
 
                     message_board.setText(res);
+                    */
 
                     disable_kiosk_mode();
                     cancel_location_updates();
                 }
                 else
                 {
-                    String res = "Accuracy  : " + Float.toString(location.getAccuracy()) + "\n";
-
-                    message_board.setText(res);
+                    dump_message("Location accuracy  : " + Float.toString(location.getAccuracy()),true);
                 }
             }
             else
@@ -442,19 +470,19 @@ public class Home extends AppCompatActivity
         @Override
         public void onProviderDisabled(String provider)
         {
-            message_board.setText("GPS location provider is disabled");
+            dump_message("GPS location provider is disabled",true);
         }
 
         @Override
         public void onProviderEnabled(String provider)
         {
-            message_board.setText("GPS location provider is enabled");
+            dump_message("GPS location provider is enabled",true);
         }
 
         @Override
         public void onStatusChanged(String provider, int status, Bundle extras)
         {
-            message_board.setText("GPS location provider's status has changed to " +  Integer.toString(status) );
+            dump_message("GPS location provider's status has changed to " + Integer.toString(status),true);
         }
     };
 
@@ -469,7 +497,7 @@ public class Home extends AppCompatActivity
             // Get a BluetoothSocket to connect with the given BluetoothDevice
             try {
                 // MY_UUID is the app's UUID string, also used by the server code
-                tmp = mmDevice.createRfcommSocketToServiceRecord(MY_UUID);
+                tmp = mmDevice.createInsecureRfcommSocketToServiceRecord(MY_UUID);
             } catch (IOException e) {
             }
             mmSocket = tmp;
@@ -549,13 +577,14 @@ public class Home extends AppCompatActivity
 
     private void send_message(String msg)
     {
-        mmDevice = mBluetoothAdapter.getRemoteDevice(kiosk_id);
+        mmDevice = mBluetoothAdapter.getRemoteDevice(kiosk_addr);
 
         ConnectThread t1 = new ConnectThread();
         t1.start();
 
         try {
             t1.join();
+            t1.cancel();
         }
         catch(InterruptedException e)
         {
@@ -627,11 +656,20 @@ public class Home extends AppCompatActivity
             }
             catch(IOException e)
             {
-                mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Something bad happened while creating input stream\n" ).sendToTarget();
+                mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Something bad happened while creating input stream" ).sendToTarget();
             }
 
             (new init_thread()).start();
             (new analyze_thread()).start();
+        }
+
+        public Boolean check_state()
+        {
+            while(!analysis_in_progress);
+
+            if(rewind_requested) {return true;}
+
+            return false;
         }
 
         public int search(int start_index)
@@ -646,7 +684,7 @@ public class Home extends AppCompatActivity
                 int match_count = 100;
 
                 /***********************************/
-                if(!analysis_in_progress){return 0;}
+                if(check_state()){return 0;}
                 /************************************/
 
                 while(match_count > 1)
@@ -657,11 +695,9 @@ public class Home extends AppCompatActivity
 
                     Signal val = user.read(curr_index);
 
-                    if(threshold==15)
+                    if(lastIndex<curr_index)
                     {
                         String msg = "";
-                        msg += Integer.toString(curr_index);
-                        msg += " ";
                         msg += Integer.toString(val.data[12]);
                         msg += " ";
                         msg += Integer.toString(val.data[13]);
@@ -682,7 +718,7 @@ public class Home extends AppCompatActivity
                 }
 
                 /***********************************/
-                if(!analysis_in_progress){return 0;}
+                if(check_state()){return 0;}
                 /************************************/
 
                 // if there was no match, just lower threshold
@@ -696,7 +732,7 @@ public class Home extends AppCompatActivity
                         Integer match = patients.get(i).get_match();
 
                         /***********************************/
-                        if(!analysis_in_progress){return 0;}
+                        if(check_state()){return 0;}
                         /************************************/
 
                         // lets make sure there is no more match
@@ -744,15 +780,17 @@ public class Home extends AppCompatActivity
             {
                 while(true)
                 {
-                    if(analysis_in_progress && data_ready)
-                    {
-                        mainHandler.obtainMessage(MESSAGE_APPEND,"Searching for " +Integer.toString(index)+"\n").sendToTarget();
-
-                        index = search(index);
-                    }
-                    else
+                    if(rewind_requested)
                     {
                         index = 0;
+                        reset_rewind_flag();
+                        mainHandler.obtainMessage(MESSAGE_GRAPH_RST,"Kamyar").sendToTarget();
+                    }
+
+                    if(analysis_in_progress && data_ready)
+                    {
+                        mainHandler.obtainMessage(MESSAGE_APPEND,"Looking for user entry#" +Integer.toString(index)).sendToTarget();
+                        index = search(index);
                     }
                 }
             }
@@ -770,23 +808,24 @@ public class Home extends AppCompatActivity
 
                     /* TODO : EKGs dont need to be thread */
 
-                    user.start();
+                    //user.start();
+                    //for(int i=0; i<patients.size(); i++) { patients.get(i).start(); }
 
-                    for(int i=0; i<patients.size(); i++) { patients.get(i).start(); }
+                    mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Reading database").sendToTarget();
 
-                    mainHandler.obtainMessage(MESSAGE_OVERWRITE,"[" +   DateFormat.getTimeInstance().format(new Date()) + "] Reading database\n" ).sendToTarget();
+                    user.run();
+                    for(int i=0; i<patients.size(); i++) { patients.get(i).run(); }
 
-                    user.join();
+                    //user.join();
+                    //for(int i=0; i<patients.size(); i++) { patients.get(i).join(); }
 
-                    for(int i=0; i<patients.size(); i++) { patients.get(i).join(); }
-
-                    mainHandler.obtainMessage(MESSAGE_APPEND,"[" +   DateFormat.getTimeInstance().format(new Date()) + "] Data is now loaded!\n").sendToTarget();
+                    mainHandler.obtainMessage(MESSAGE_APPEND,"Data loaded").sendToTarget();
 
                     set_ready_flag();
 
                     return;
                 }
-                catch(InterruptedException e)
+                catch(Exception e)
                 {
                     mainHandler.obtainMessage(MESSAGE_OVERWRITE,"Interrupted Exception during EKG creation\n").sendToTarget();
                     System.exit(3);
